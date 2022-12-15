@@ -1,74 +1,81 @@
-import { Machine, Typestate, Interpreter } from 'xstate'
-// import { getXstateUtils, MachineStateSchemaPaths } from '../xstate.utils'
-// import { gql, GetMicroAppQuery } from '../../../../api-services'
-export interface ManagePageContext {
-  microAppDetails?: GetMicroAppQuery['apps_by_pk']
-  errors?: string
+import { Todo } from 'components/Todo'
+import { assign, createMachine } from 'xstate'
+
+type TodoContext = {
+  todos: Todo[]
+  id?: number
+  text?: string
+  isCompleted?: boolean
+  isDeleted?: boolean
 }
 
-export interface MicroAppState {
-  states: {
-    idle: object
-    loading: object
-    loaded: object
-    errors: object
-  }
-}
-
-export type MicroAppEvents = { type: 'microApp.fetchData' }
-
-export interface MicroAppTypestates extends Typestate<ManagePageContext> {
-  context: ManagePageContext
-  value: MachineStateSchemaPaths<MicroAppState['states']>
-}
-
-export type MicroAppInterpreter = Interpreter<
-  ManagePageContext,
-  MicroAppState,
-  MicroAppEvents,
-  MicroAppTypestates,
-  any
->
-
-const { createInvokablePromise, createXstateHooks: createMicroAppXstateHooks } =
-  getXstateUtils<
-    ManagePageContext,
-    MicroAppEvents,
-    MicroAppTypestates,
-    MicroAppState
-  >()
-
-export { createMicroAppXstateHooks }
-
-export const microAppMachine = Machine<
-  ManagePageContext,
-  MicroAppState,
-  MicroAppEvents
->({
-  context: {},
-  preserveActionOrder: true,
-  predictableActionArguments: true,
-  id: 'microApp',
-  initial: 'idle',
-  strict: true,
-  states: {
-    idle: {
-      on: {
-        'microApp.fetchData': 'loading'
-      }
+export const todoMachine = createMachine<TodoContext>(
+  {
+    id: 'todo',
+    initial: 'active',
+    context: {
+      todos: [
+        { id: 0, text: 'First Todo', isCompleted: false, isDeleted: false }
+      ]
     },
-    loading: {
-      invoke: createInvokablePromise({
-        id: 'loading',
-        src: async () => gql.getMicroApp({ microAppId: 2 }),
-        onDoneTarget: 'loaded',
-        onDoneAssignContext({ ctx, data }) {
-          ctx.microAppDetails = data.apps_by_pk
-        },
-        onErrorTarget: 'errors'
+    states: {
+      active: {
+        predictableActionArguments: true,
+        strict: true,
+        on: {
+          ADD_TODO: {
+            target: 'active',
+            actions: 'addTodo'
+          },
+          TOGGLE: { actions: 'toggle' },
+          ON_CHANGE: { target: 'active', actions: 'changeTodo' },
+          DELETE: { target: 'deleted', actions: 'delete' }
+        }
+      },
+      completed: {
+        on: {
+          TOGGLE: { target: 'active', actions: 'toggle' },
+          DELETE: 'deleted'
+        }
+      },
+      deleted: { type: 'history' }
+    }
+  },
+  {
+    actions: {
+      toggle: assign({
+        todos: (context, event) => {
+          const id = event.completed.id as number
+          const todo = context.todos.find((todo) => todo.id === id)
+          if (todo) {
+            todo.isCompleted = !todo.isCompleted
+          }
+          return [...context.todos]
+        }
+      }),
+      delete: assign({
+        todos: (context, event) => {
+          const id = event.todo.id as number
+          const todo = context.todos.find((todo) => todo.id === id)
+          if (todo) {
+            todo.isDeleted = true
+          }
+          return context.todos.filter((todo) => todo.id !== id)
+        }
+      }),
+      addTodo: assign({
+        todos: (context, event) => {
+          const text = event.text as string
+          const id = context.todos.length
+          const todo = { id, text, isCompleted: false, isDeleted: false }
+          return [...context.todos, todo]
+        }
+      }),
+      changeTodo: assign({
+        text: (_context, event) => {
+          return event.text as string
+        }
       })
-    },
-    loaded: {},
-    errors: {}
+    }
   }
-})
+)

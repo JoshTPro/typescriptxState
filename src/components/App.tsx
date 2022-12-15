@@ -1,25 +1,22 @@
-import Avatar from 'components/Avatar'
+import { Todo } from './Todo'
+import { todoMachine } from 'xstate/todoMachine'
+import { useMachine } from '@xstate/react'
 
 function App() {
+  const [state, send] = useMachine(todoMachine)
+  const { todos, id, text } = state.context
+
   return (
     <div className="bg-white">
-      <div className="mx-auto max-w-screen-xl py-16 px-4 sm:py-24 sm:px-6 lg:px-8">
-        <div className="text-center">
-          <h2 className="text-base font-semibold uppercase tracking-wide text-blue-600">
-            {new Date().toLocaleDateString()}
-          </h2>
-          <p className="my-3 text-4xl font-bold text-gray-900 sm:text-5xl sm:tracking-tight lg:text-6xl">
-            Todo List
-          </p>
-          <p className="text-xl text-gray-400">Start building for free.</p>
-          <p className="mt-5">
-            <Avatar
-              size="large"
-              src="https://www.gravatar.com/avatar/4405735f6f3129e0286d9d43e7b460d0"
-            />
-          </p>
-        </div>
-      </div>
+      <Todo
+        todos={todos}
+        toggleTodo={(completed) => send({ type: 'TOGGLE', completed })}
+        addTodo={(text) => send('ADD_TODO', { text })}
+        onChangeTodo={(text) => send({ type: 'ON_CHANGE', text })}
+        text={text as string}
+        id={id as number}
+        deleteTodo={(todo) => send({ type: 'DELETE', todo })}
+      />
     </div>
   )
 }
