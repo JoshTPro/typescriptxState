@@ -1,22 +1,46 @@
-import { Todo } from 'components/Todo'
 import { assign, createMachine } from 'xstate'
 
-type TodoContext = {
-  todos: Todo[]
-  id?: number
-  text?: string
-  isCompleted?: boolean
-  isDeleted?: boolean
+export interface TodoItem {
+  id: number
+  text: string
+  isCompleted: boolean
 }
 
-export const todoMachine = createMachine<TodoContext>(
+interface ToggleEvent {
+  type: 'TOGGLE'
+  completed: TodoItem
+}
+interface AddEvent {
+  type: 'ADD_TODO'
+  text: string
+}
+interface OnChangeEvent {
+  type: 'ON_CHANGE'
+  text: string
+}
+interface DeleteEvent {
+  type: 'DELETE'
+  todo: TodoItem
+}
+type TodoAppEvents = ToggleEvent | AddEvent | OnChangeEvent | DeleteEvent
+
+export const todoMachine = createMachine(
   {
     id: 'todo',
     initial: 'active',
+    schema: {
+      context: {
+        text: '',
+        todos: [] as TodoItem[]
+      },
+      events: {} as TodoAppEvents
+    },
+    // https://xstate.js.org/docs/guides/typescript.html#typegen
+    // we don't use it in grizzlystudio project, but in this case we must do it
+    tsTypes: {} as import('./todoMachine.typegen').Typegen0,
     context: {
-      todos: [
-        { id: 0, text: 'First Todo', isCompleted: false, isDeleted: false }
-      ]
+      text: '',
+      todos: []
     },
     states: {
       active: {
@@ -45,7 +69,7 @@ export const todoMachine = createMachine<TodoContext>(
     actions: {
       toggle: assign({
         todos: (context, event) => {
-          const id = event.completed.id as number
+          const id = event.completed.id
           const todo = context.todos.find((todo) => todo.id === id)
           if (todo) {
             todo.isCompleted = !todo.isCompleted
@@ -55,25 +79,20 @@ export const todoMachine = createMachine<TodoContext>(
       }),
       delete: assign({
         todos: (context, event) => {
-          const id = event.todo.id as number
-          const todo = context.todos.find((todo) => todo.id === id)
-          if (todo) {
-            todo.isDeleted = true
-          }
-          return context.todos.filter((todo) => todo.id !== id)
+          return context.todos.filter((todo) => todo.id !== event.todo.id)
         }
       }),
       addTodo: assign({
         todos: (context, event) => {
-          const text = event.text as string
+          const text = event.text
           const id = context.todos.length
-          const todo = { id, text, isCompleted: false, isDeleted: false }
+          const todo = { id, text, isCompleted: false }
           return [...context.todos, todo]
         }
       }),
       changeTodo: assign({
         text: (_context, event) => {
-          return event.text as string
+          return event.text
         }
       })
     }

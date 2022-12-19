@@ -1,50 +1,29 @@
+import { useMachine } from '@xstate/react'
 import React from 'react'
+import { TodoItem, todoMachine } from '../xstate/todoMachine'
 
-export interface Todo {
-  newTodo?: { text: string; type: string }
-  complete?: boolean
-  text: string
-  id: number
-  isCompleted: boolean
-  isDeleted: boolean
-}
+export const TodoApp: React.FC = () => {
+  const [state, send] = useMachine(todoMachine)
+  const { todos, text } = state.context
 
-interface ToggleTodo {
-  (selectedTodo: Todo): void
-}
+  const onChangeTodo = (text: string) => send({ type: 'ON_CHANGE', text })
 
-interface AddTodo {
-  (text: { text: string }, isCompleted?: boolean, isDeleted?: boolean): void
-}
-
-interface TodoProps {
-  id: number
-  todos: Array<Todo>
-  toggleTodo: ToggleTodo
-  addTodo: AddTodo
-  onChangeTodo: (text: string) => void
-  text: string
-  deleteTodo: (todo: Todo) => void
-}
-
-export const Todo: React.FC<TodoProps> = ({
-  todos,
-  toggleTodo,
-  text,
-  addTodo,
-  onChangeTodo,
-  deleteTodo
-}) => {
   const onAddTodo = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
+
     if (!text) return
-    addTodo(text as unknown as { text: string })
+
+    send({ type: 'ADD_TODO', text })
     onChangeTodo('')
   }
 
-  const onToggleTodo = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const onChange = (e: React.ChangeEvent<HTMLInputElement>) =>
     onChangeTodo(e.target.value)
-  }
+
+  const toggleTodo = (completed: TodoItem) =>
+    send({ type: 'TOGGLE', completed })
+
+  const deleteTodo = (todo: TodoItem) => send({ type: 'DELETE', todo })
 
   return (
     <>
@@ -61,10 +40,10 @@ export const Todo: React.FC<TodoProps> = ({
               <form className="flex flex-col" onSubmit={onAddTodo}>
                 <input
                   type="text"
-                  value={text || ''}
+                  value={text}
                   className="rounded-md border border-gray-300 shadow-sm"
                   placeholder="Get Milk..."
-                  onChange={onToggleTodo}
+                  onChange={onChange}
                 />
                 <button
                   className="mt-4 w-1/3 self-center rounded bg-blue-500 font-bold text-white transition ease-in-out hover:bg-blue-700"
@@ -79,9 +58,9 @@ export const Todo: React.FC<TodoProps> = ({
       </div>
 
       <ul className="flex flex-col">
-        {todos.map((todo, idx) => {
+        {todos.map((todo) => {
           return (
-            <li className="m-auto " key={idx}>
+            <li className="m-auto " key={todo.id}>
               <label
                 style={{
                   textDecoration: todo.isCompleted ? 'line-through' : undefined
@@ -90,17 +69,13 @@ export const Todo: React.FC<TodoProps> = ({
                 <input
                   className="mr-2"
                   type="checkbox"
-                  checked={todo.complete}
-                  onChange={() => {
-                    toggleTodo(todo)
-                  }}
+                  checked={todo.isCompleted}
+                  onChange={() => toggleTodo(todo)}
                 />
                 {todo?.text}
                 <button
                   className="ml-1 text-red-600"
-                  onClick={() => {
-                    deleteTodo(todo)
-                  }}
+                  onClick={() => deleteTodo(todo)}
                 >
                   X
                 </button>
